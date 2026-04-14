@@ -12,13 +12,21 @@
 }
 
 html,
-body,
-#root {
+body {
   min-height: 100%;
 }
 
 body {
   margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+code,
+pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 .demo-shell {
@@ -30,7 +38,7 @@ body {
 }
 
 .demo-copy {
-  max-width: 58rem;
+  max-width: 60rem;
 }
 
 .demo-kicker {
@@ -57,6 +65,13 @@ body {
   color: rgba(22, 19, 15, 0.8);
 }
 
+.demo-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 14px 0 0;
+}
+
 .demo-metrics {
   display: flex;
   gap: 16px;
@@ -68,6 +83,7 @@ body {
 .serpentine-stage {
   position: relative;
   overflow: hidden;
+  min-height: 440px;
   border-top: 1px solid rgba(22, 19, 15, 0.08);
 }
 
@@ -146,7 +162,6 @@ body {
   height: 72px;
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(29, 96, 135, 0.18), rgba(190, 109, 47, 0.6));
-  filter: blur(0.15px);
   pointer-events: none;
 }
 
@@ -191,7 +206,6 @@ body {
 }
 
 .demo-docs code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.84rem;
   line-height: 1.55;
 }
@@ -215,3 +229,4 @@ body {
     grid-template-columns: 1fr;
   }
 }
+

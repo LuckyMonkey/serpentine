@@ -2,26 +2,119 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=./docs/" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Serpentine is a reusable serpentine track engine extracted from the fridge dashboard, with a static GitHub Pages demo and implementation notes."
+    />
     <title>Serpentine</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        font-family: Georgia, serif;
-        background: #f6f1e7;
-        color: #1d1711;
-      }
-      a {
-        color: inherit;
-      }
-    </style>
+    <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
-    <p>Redirecting to the demo. <a href="./docs/">Open it here</a>.</p>
+    <main class="demo-shell">
+      <section class="demo-copy" aria-label="Serpentine overview">
+        <p class="demo-kicker">fridge dashboard extraction</p>
+        <h1>Serpentine</h1>
+        <p class="demo-summary">
+          A bounded, alternating-column track engine that turns a fixed viewport into a continuous snake-shaped queue.
+        </p>
+        <p class="demo-links">
+          <a href="https://github.com/LuckyMonkey/serpentine">Repository</a>
+          <a href="https://luckymonkey.github.io/serpentine/">Live demo</a>
+        </p>
+      </section>
+
+      <div class="demo-metrics" aria-label="Serpentine metrics">
+        <span id="metric-columns">0 columns</span>
+        <span id="metric-rows">0 rows</span>
+        <span id="metric-items">0 items</span>
+      </div>
+
+      <section class="serpentine-stage" id="serpentine-stage" aria-label="Serpentine demo viewport">
+        <svg class="serpentine-path" id="serpentine-path" aria-hidden="true"></svg>
+        <div class="serpentine-progress" id="serpentine-progress" aria-hidden="true"></div>
+      </section>
+
+      <section class="demo-docs" aria-label="Usage guide">
+        <article>
+          <h2>How to pull it</h2>
+          <pre><code>git clone git@github.com:LuckyMonkey/serpentine.git
+cd serpentine
+npm install
+npm run test
+npm run typecheck</code></pre>
+        </article>
+
+        <article>
+          <h2>How to use it</h2>
+          <pre><code>import {
+  computeTrackMetrics,
+  buildSerpentinePath,
+  resolvePlacements
+} from "serpentine";
+
+const metrics = computeTrackMetrics({
+  width,
+  height,
+  itemWidth,
+  itemHeight,
+  gapX,
+  gapY,
+  padX,
+  padY
+});
+
+const path = buildSerpentinePath(metrics, itemCount + extraSlots);
+const placements = resolvePlacements(path, itemCount, offsetPx);</code></pre>
+        </article>
+
+        <article>
+          <h2>How to implement it</h2>
+          <ol>
+            <li>Measure the viewport that will host the board.</li>
+            <li>Choose card size, spacing, and padding for that viewport.</li>
+            <li>Build metrics, then the serpentine path.</li>
+            <li>Drive an offset from wheel, swipe, keys, or another motion source.</li>
+            <li>Resolve placements and absolutely position each visible card.</li>
+          </ol>
+        </article>
+
+        <article>
+          <h2>How it works fundamentally</h2>
+          <p>
+            The engine first computes slot rectangles in alternating columns. Even columns run downward; odd columns run upward.
+          </p>
+          <p>
+            It then turns the slot centers into a single axis-aligned path with cumulative distances. Each item maps to a desired distance on that path.
+          </p>
+          <p>
+            In tight corner regions the constraint solver nudges later items forward so cards stay readable and collision-free instead of stacking into each other.
+          </p>
+        </article>
+
+        <article>
+          <h2>How the CSS works</h2>
+          <p>
+            The page CSS is intentionally flat and static. Layout is split into four layers: the top copy block, the metrics row, the bounded stage, and the documentation grid.
+          </p>
+          <p>
+            The stage itself uses three primitives: an SVG path backdrop, absolutely positioned cards, and a slim progress marker. Cards get their color from a single custom property, <code>--accent</code>.
+          </p>
+          <p>
+            There is no framework styling dependency on the live page. The root demo is just <code>index.html</code>, <code>demo.css</code>, and <code>demo.js</code>, so GitHub Pages can serve it directly from <code>main</code>.
+          </p>
+        </article>
+
+        <article>
+          <h2>Source links</h2>
+          <p><a href="./src/engine/slots.ts">slots.ts</a></p>
+          <p><a href="./src/engine/path.ts">path.ts</a></p>
+          <p><a href="./src/engine/constraints.ts">constraints.ts</a></p>
+          <p><a href="./tests/engine.test.ts">engine tests</a></p>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./demo.js"></script>
   </body>
 </html>
-
