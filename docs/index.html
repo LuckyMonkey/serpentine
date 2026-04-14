@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Serpentine Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Georgia, "Times New Roman", serif;
+        background: #f6f3ee;
+        color: #1d1a16;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at top, rgba(181, 132, 64, 0.18), transparent 36%),
+          linear-gradient(180deg, #fbf8f2 0%, #efe8da 100%);
+      }
+
+      main {
+        width: min(720px, calc(100vw - 32px));
+        padding: 48px 32px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2.5rem, 5vw, 4.25rem);
+        line-height: 0.95;
+      }
+
+      p {
+        margin: 0 0 12px;
+        font-size: 1.05rem;
+        line-height: 1.6;
+        max-width: 38rem;
+      }
+
+      a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Serpentine</h1>
+      <p>A GitHub Pages placeholder is live while the reusable serpentine layout package and demo are being extracted from the fridge dashboard.</p>
+      <p>Refresh this page after the next push for the working demo.</p>
+      <p><a href="https://github.com/LuckyMonkey/serpentine">Repository</a></p>
+    </main>
+  </body>
+</html>
