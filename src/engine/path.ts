@@ -34,7 +34,7 @@ export interface PathSample {
   tangentY: number;
 }
 
-function makeSegments(points: PathPoint[]) {
+function makeSegments(points: PathPoint[], slotPitch: number) {
   const segments: PathSegment[] = [];
   let cursor = 0;
 
@@ -44,11 +44,17 @@ function makeSegments(points: PathPoint[]) {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const axis = dx !== 0 ? 'horizontal' : 'vertical';
-    const length = Math.abs(dx) + Math.abs(dy);
 
-    if (length <= 0) {
+    if (dx === 0 && dy === 0) {
       continue;
     }
+
+    // The path parameter is intentionally logical rather than geometric.
+    // Every neighboring slot consumes one rowPitch of path distance, even
+    // when the visual move is the longer horizontal bridge between columns.
+    // This keeps integer offsets aligned to real slots and makes the whole
+    // board advance one slot at a time instead of accumulating turn drift.
+    const length = slotPitch;
 
     segments.push({
       index,
@@ -70,20 +76,8 @@ function makeSegments(points: PathPoint[]) {
 export function buildSerpentinePath(metrics: TrackMetrics, slotCount: number): SerpentinePath {
   const slots = buildSlots(metrics, slotCount);
   const points = slots.map((slot) => ({ x: slot.cx, y: slot.cy, slotIndex: slot.slotIndex }));
-  const { segments, totalLength } = makeSegments(points);
-  const slotDistances = new Array(slotCount).fill(0);
-
-  if (slotCount > 1) {
-    let cursor = 0;
-    slotDistances[0] = 0;
-
-    for (let index = 1; index < slotCount; index += 1) {
-      const previous = points[index - 1];
-      const current = points[index];
-      cursor += Math.abs(current.x - previous.x) + Math.abs(current.y - previous.y);
-      slotDistances[index] = cursor;
-    }
-  }
+  const { segments, totalLength } = makeSegments(points, metrics.rowPitch);
+  const slotDistances = Array.from({ length: slotCount }, (_, index) => index * metrics.rowPitch);
 
   return {
     metrics,
@@ -127,9 +121,12 @@ export function sampleAt(path: SerpentinePath, u: number): PathSample {
   if (u <= 0) {
     const first = path.points[0];
     const segment = path.segments[0];
+    const scale = path.metrics.rowPitch > 0 ? u / path.metrics.rowPitch : 0;
+    const dx = segment ? segment.to.x - segment.from.x : 0;
+    const dy = segment ? segment.to.y - segment.from.y : path.metrics.rowPitch;
     return {
-      x: first.x + (segment?.tangentX ?? 0) * u,
-      y: first.y + (segment?.tangentY ?? 1) * u,
+      x: first.x + dx * scale,
+      y: first.y + dy * scale,
       tangentX: segment?.tangentX ?? 0,
       tangentY: segment?.tangentY ?? 1
     };
@@ -138,9 +135,13 @@ export function sampleAt(path: SerpentinePath, u: number): PathSample {
   if (u >= path.totalLength) {
     const last = path.points[path.points.length - 1];
     const segment = path.segments[path.segments.length - 1];
+    const extra = u - path.totalLength;
+    const scale = path.metrics.rowPitch > 0 ? extra / path.metrics.rowPitch : 0;
+    const dx = segment ? segment.to.x - segment.from.x : 0;
+    const dy = segment ? segment.to.y - segment.from.y : path.metrics.rowPitch;
     return {
-      x: last.x + (segment?.tangentX ?? 0) * (u - path.totalLength),
-      y: last.y + (segment?.tangentY ?? 1) * (u - path.totalLength),
+      x: last.x + dx * scale,
+      y: last.y + dy * scale,
       tangentX: segment?.tangentX ?? 0,
       tangentY: segment?.tangentY ?? 1
     };
@@ -177,4 +178,3 @@ export function tangentAt(path: SerpentinePath, u: number) {
 export function positionAt(path: SerpentinePath, u: number) {
   return sampleAt(path, u);
 }
-
