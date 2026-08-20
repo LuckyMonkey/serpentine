@@ -26,9 +26,7 @@ function intersects(a: Placement, b: Placement) {
 function intersectsRecent(placement: Placement, placements: Placement[], count: number) {
   for (let index = count - 1, seen = 0; index >= 0 && seen < 4; index -= 1, seen += 1) {
     const blocker = placements[index];
-    if (blocker && intersects(blocker, placement)) {
-      return true;
-    }
+    if (blocker && intersects(blocker, placement)) return true;
   }
   return false;
 }
@@ -37,49 +35,29 @@ function writePlacement(target: Placement, path: SerpentinePath, itemIndex: numb
   const sample = sampleAt(path, distance);
   const left = sample.x - path.metrics.itemWidth / 2;
   const top = sample.y - path.metrics.itemHeight / 2;
-
-  target.itemIndex = itemIndex;
-  target.desiredDistance = distance;
-  target.actualDistance = distance;
-  target.x = sample.x;
-  target.y = sample.y;
-  target.tangentX = sample.tangentX;
-  target.tangentY = sample.tangentY;
-  target.left = left;
-  target.top = top;
-  target.right = left + path.metrics.itemWidth;
-  target.bottom = top + path.metrics.itemHeight;
+  Object.assign(target, {
+    itemIndex,
+    desiredDistance: distance,
+    actualDistance: distance,
+    x: sample.x,
+    y: sample.y,
+    tangentX: sample.tangentX,
+    tangentY: sample.tangentY,
+    left,
+    top,
+    right: left + path.metrics.itemWidth,
+    bottom: top + path.metrics.itemHeight
+  });
   return target;
 }
 
 function createPlacement(): Placement {
-  return {
-    itemIndex: 0,
-    desiredDistance: 0,
-    actualDistance: 0,
-    x: 0,
-    y: 0,
-    tangentX: 0,
-    tangentY: 0,
-    left: 0,
-    top: 0,
-    right: 0,
-    bottom: 0
-  };
+  return { itemIndex: 0, desiredDistance: 0, actualDistance: 0, x: 0, y: 0, tangentX: 0, tangentY: 0, left: 0, top: 0, right: 0, bottom: 0 };
 }
 
-function resolveCollisionFreePlacement(
-  path: SerpentinePath,
-  itemIndex: number,
-  desiredDistance: number,
-  placements: Placement[],
-  placementCount: number,
-  scratch: Placement
-) {
+function resolveCollisionFreePlacement(path: SerpentinePath, itemIndex: number, desiredDistance: number, placements: Placement[], placementCount: number, scratch: Placement) {
   let placement = writePlacement(scratch, path, itemIndex, desiredDistance);
-  if (!intersectsRecent(placement, placements, placementCount)) {
-    return placement;
-  }
+  if (!intersectsRecent(placement, placements, placementCount)) return placement;
 
   const spacingStep = Math.max(path.metrics.rowPitch, path.metrics.itemHeight / 2);
   let low = desiredDistance;
@@ -98,9 +76,8 @@ function resolveCollisionFreePlacement(
   for (let attempt = 0; attempt < 7; attempt += 1) {
     const mid = (low + high) / 2;
     const candidate = writePlacement(scratch, path, itemIndex, mid);
-    if (intersectsRecent(candidate, placements, placementCount)) {
-      low = mid;
-    } else {
+    if (intersectsRecent(candidate, placements, placementCount)) low = mid;
+    else {
       high = mid;
       bestDistance = mid;
     }
@@ -112,24 +89,29 @@ function resolveCollisionFreePlacement(
   return placement;
 }
 
-export function getPlacementRange(path: SerpentinePath, itemCount: number, offsetPx: number, overscan = 1): PlacementRange {
-  if (itemCount === 0) {
-    return { startIndex: 0, endIndex: -1 };
+function lowerBound(values: number[], value: number) {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (values[mid] < value) low = mid + 1;
+    else high = mid;
   }
+  return low;
+}
 
-  const startIndex = Math.max(0, Math.floor(offsetPx / Math.max(1, path.metrics.rowPitch)) - overscan);
-  const endIndex = Math.min(itemCount - 1, startIndex + path.metrics.visibleSlotCount + overscan * 4);
+export function getPlacementRange(path: SerpentinePath, itemCount: number, offsetPx: number, overscan = 1): PlacementRange {
+  if (itemCount === 0 || path.slotDistances.length === 0) return { startIndex: 0, endIndex: -1 };
+
+  const firstVisible = lowerBound(path.slotDistances, Math.max(0, offsetPx));
+  const startIndex = Math.max(0, Math.min(itemCount - 1, firstVisible) - overscan);
+  const visibleDistance = path.slotDistances[Math.max(0, path.metrics.visibleSlotCount - 1)] ?? path.totalLength;
+  const lastVisible = lowerBound(path.slotDistances, offsetPx + visibleDistance + path.metrics.rowPitch * 1.5);
+  const endIndex = Math.min(itemCount - 1, Math.max(startIndex, lastVisible + overscan));
   return { startIndex, endIndex };
 }
 
-export function fillPlacementsInRange(
-  path: SerpentinePath,
-  itemCount: number,
-  offsetPx: number,
-  startIndex: number,
-  endIndex: number,
-  placements: Placement[]
-) {
+export function fillPlacementsInRange(path: SerpentinePath, itemCount: number, offsetPx: number, startIndex: number, endIndex: number, placements: Placement[]) {
   if (itemCount === 0) {
     placements.length = 0;
     return placements;
@@ -142,13 +124,10 @@ export function fillPlacementsInRange(
 
   for (let itemIndex = startIndex; itemIndex <= endIndex; itemIndex += 1) {
     const desiredDistance = (path.slotDistances[itemIndex] ?? path.slotDistances[path.slotDistances.length - 1]) - offsetPx;
-    if (desiredDistance < minDistance || desiredDistance > maxDistance) {
-      continue;
-    }
+    if (desiredDistance < minDistance || desiredDistance > maxDistance) continue;
 
     const scratch = placements[placementCount] ?? createPlacement();
-    const resolved = resolveCollisionFreePlacement(path, itemIndex, desiredDistance, placements, placementCount, scratch);
-    placements[placementCount] = resolved === scratch ? scratch : Object.assign(scratch, resolved);
+    placements[placementCount] = resolveCollisionFreePlacement(path, itemIndex, desiredDistance, placements, placementCount, scratch);
     placementCount += 1;
   }
 
@@ -156,13 +135,7 @@ export function fillPlacementsInRange(
   return placements;
 }
 
-export function resolvePlacementsInRange(
-  path: SerpentinePath,
-  itemCount: number,
-  offsetPx: number,
-  startIndex: number,
-  endIndex: number
-) {
+export function resolvePlacementsInRange(path: SerpentinePath, itemCount: number, offsetPx: number, startIndex: number, endIndex: number) {
   const placements: Placement[] = [];
   fillPlacementsInRange(path, itemCount, offsetPx, startIndex, endIndex, placements);
   return placements;
@@ -172,4 +145,3 @@ export function resolvePlacements(path: SerpentinePath, itemCount: number, offse
   const { startIndex, endIndex } = getPlacementRange(path, itemCount, offsetPx, overscan);
   return resolvePlacementsInRange(path, itemCount, offsetPx, startIndex, endIndex);
 }
-

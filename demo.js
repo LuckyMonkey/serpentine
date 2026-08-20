@@ -33,10 +33,9 @@ const DESKTOP_SLOT_HEIGHT = 84;
 const MOBILE_PAD_Y = 3;
 const TABLET_PAD_Y = 5;
 const DESKTOP_PAD_Y = 6;
+const FOLLOW_RATE = 13;
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 function computeTrackMetrics(config) {
   const colPitch = config.itemWidth + config.gapX;
@@ -45,14 +44,7 @@ function computeTrackMetrics(config) {
   const innerHeight = Math.max(1, config.height - config.padY * 2);
   const rowsPerCol = Math.max(1, Math.floor((innerHeight + config.gapY) / rowPitch));
   const columnsVisible = Math.max(1, Math.floor((innerWidth + config.gapX) / colPitch));
-  return {
-    ...config,
-    colPitch,
-    rowPitch,
-    rowsPerCol,
-    columnsVisible,
-    visibleSlotCount: rowsPerCol * columnsVisible
-  };
+  return { ...config, colPitch, rowPitch, rowsPerCol, columnsVisible, visibleSlotCount: rowsPerCol * columnsVisible };
 }
 
 function getSlotRect(slotIndex, metrics) {
@@ -61,28 +53,14 @@ function getSlotRect(slotIndex, metrics) {
   const row = col % 2 === 0 ? rowInCol : metrics.rowsPerCol - 1 - rowInCol;
   const x = metrics.padX + col * metrics.colPitch;
   const y = metrics.padY + row * metrics.rowPitch;
-  return {
-    slotIndex,
-    col,
-    rowInCol,
-    row,
-    x,
-    y,
-    width: metrics.itemWidth,
-    height: metrics.itemHeight,
-    cx: x + metrics.itemWidth / 2,
-    cy: y + metrics.itemHeight / 2
-  };
-}
-
-function buildSlots(metrics, slotCount) {
-  return Array.from({ length: slotCount }, (_, index) => getSlotRect(index, metrics));
+  return { slotIndex, col, rowInCol, row, x, y, width: metrics.itemWidth, height: metrics.itemHeight, cx: x + metrics.itemWidth / 2, cy: y + metrics.itemHeight / 2 };
 }
 
 function buildSerpentinePath(metrics, slotCount) {
-  const slots = buildSlots(metrics, slotCount);
+  const slots = Array.from({ length: slotCount }, (_, index) => getSlotRect(index, metrics));
   const points = slots.map((slot) => ({ x: slot.cx, y: slot.cy, slotIndex: slot.slotIndex }));
   const segments = [];
+  const slotDistances = new Array(slotCount).fill(0);
   let totalLength = 0;
 
   for (let index = 0; index < points.length - 1; index += 1) {
@@ -91,83 +69,46 @@ function buildSerpentinePath(metrics, slotCount) {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const length = Math.abs(dx) + Math.abs(dy);
-    if (length <= 0) continue;
-    segments.push({
-      from,
-      to,
-      length,
-      start: totalLength,
-      end: totalLength + length,
-      tangentX: dx === 0 ? 0 : Math.sign(dx),
-      tangentY: dy === 0 ? 0 : Math.sign(dy)
-    });
+    if (!length) continue;
+    segments.push({ from, to, length, start: totalLength, end: totalLength + length, tangentX: dx === 0 ? 0 : Math.sign(dx), tangentY: dy === 0 ? 0 : Math.sign(dy) });
     totalLength += length;
+    slotDistances[index + 1] = totalLength;
   }
-
-  const slotDistances = new Array(slotCount).fill(0);
-  if (slotCount > 1) {
-    let cursor = 0;
-    for (let index = 1; index < slotCount; index += 1) {
-      const previous = points[index - 1];
-      const current = points[index];
-      cursor += Math.abs(current.x - previous.x) + Math.abs(current.y - previous.y);
-      slotDistances[index] = cursor;
-    }
-  }
-
   return { metrics, slots, points, segments, slotDistances, totalLength };
 }
 
 function findSegment(path, u) {
-  if (!path.segments.length) return null;
-  for (const segment of path.segments) {
-    if (u >= segment.start && u <= segment.end) return segment;
+  let low = 0;
+  let high = path.segments.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >>> 1;
+    const segment = path.segments[mid];
+    if (u < segment.start) high = mid - 1;
+    else if (u > segment.end) low = mid + 1;
+    else return segment;
   }
-  if (u < 0) return path.segments[0];
-  return path.segments[path.segments.length - 1];
+  return path.segments[clamp(low, 0, path.segments.length - 1)] ?? null;
 }
 
 function sampleAt(path, u) {
   if (!path.points.length) return { x: 0, y: 0, tangentX: 0, tangentY: 1 };
-  if (u <= 0) {
-    const first = path.points[0];
-    const segment = path.segments[0];
-    return {
-      x: first.x + (segment ? segment.tangentX * u : 0),
-      y: first.y + (segment ? segment.tangentY * u : u),
-      tangentX: segment ? segment.tangentX : 0,
-      tangentY: segment ? segment.tangentY : 1
-    };
-  }
+  const first = path.points[0];
+  const last = path.points[path.points.length - 1];
+  const firstSegment = path.segments[0];
+  const lastSegment = path.segments[path.segments.length - 1];
+  if (u <= 0) return { x: first.x + (firstSegment?.tangentX ?? 0) * u, y: first.y + (firstSegment?.tangentY ?? 1) * u, tangentX: firstSegment?.tangentX ?? 0, tangentY: firstSegment?.tangentY ?? 1 };
   if (u >= path.totalLength) {
-    const last = path.points[path.points.length - 1];
-    const segment = path.segments[path.segments.length - 1];
     const extra = u - path.totalLength;
-    return {
-      x: last.x + (segment ? segment.tangentX * extra : 0),
-      y: last.y + (segment ? segment.tangentY * extra : extra),
-      tangentX: segment ? segment.tangentX : 0,
-      tangentY: segment ? segment.tangentY : 1
-    };
+    return { x: last.x + (lastSegment?.tangentX ?? 0) * extra, y: last.y + (lastSegment?.tangentY ?? 1) * extra, tangentX: lastSegment?.tangentX ?? 0, tangentY: lastSegment?.tangentY ?? 1 };
   }
   const segment = findSegment(path, u);
-  const progress = segment.length === 0 ? 0 : (u - segment.start) / segment.length;
-  return {
-    x: segment.from.x + (segment.to.x - segment.from.x) * progress,
-    y: segment.from.y + (segment.to.y - segment.from.y) * progress,
-    tangentX: segment.tangentX,
-    tangentY: segment.tangentY
-  };
+  const progress = (u - segment.start) / segment.length;
+  return { x: segment.from.x + (segment.to.x - segment.from.x) * progress, y: segment.from.y + (segment.to.y - segment.from.y) * progress, tangentX: segment.tangentX, tangentY: segment.tangentY };
 }
 
-function intersects(a, b) {
-  return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
-}
-
-function intersectsRecent(placement, placements, count) {
-  for (let index = count - 1, seen = 0; index >= 0 && seen < 4; index -= 1, seen += 1) {
-    if (intersects(placements[index], placement)) return true;
-  }
+const intersects = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+function intersectsRecent(placement, placements) {
+  for (let index = placements.length - 1, seen = 0; index >= 0 && seen < 4; index -= 1, seen += 1) if (intersects(placements[index], placement)) return true;
   return false;
 }
 
@@ -175,13 +116,7 @@ function writePlacement(path, itemIndex, distance, target) {
   const sample = sampleAt(path, distance);
   const left = sample.x - path.metrics.itemWidth / 2;
   const top = sample.y - path.metrics.itemHeight / 2;
-  target.itemIndex = itemIndex;
-  target.desiredDistance = distance;
-  target.actualDistance = distance;
-  target.left = left;
-  target.top = top;
-  target.right = left + path.metrics.itemWidth;
-  target.bottom = top + path.metrics.itemHeight;
+  Object.assign(target, { itemIndex, desiredDistance: distance, actualDistance: distance, left, top, right: left + path.metrics.itemWidth, bottom: top + path.metrics.itemHeight });
   return target;
 }
 
@@ -190,55 +125,32 @@ function resolvePlacements(path, itemCount, offsetPx) {
   const visibleDistance = path.slotDistances[Math.max(0, path.metrics.visibleSlotCount - 1)] ?? path.totalLength;
   const minDistance = -path.metrics.rowPitch * 1.5;
   const maxDistance = visibleDistance + path.metrics.rowPitch * 1.5;
-
   for (let itemIndex = 0; itemIndex < itemCount; itemIndex += 1) {
-    const desiredDistance = (path.slotDistances[itemIndex] ?? path.slotDistances[path.slotDistances.length - 1]) - offsetPx;
+    const desiredDistance = path.slotDistances[itemIndex] - offsetPx;
     if (desiredDistance < minDistance || desiredDistance > maxDistance) continue;
-
-    const placement = {
-      itemIndex,
-      desiredDistance,
-      actualDistance: desiredDistance,
-      left: 0,
-      top: 0,
-      right: 0,
-      bottom: 0
-    };
-
-    writePlacement(path, itemIndex, desiredDistance, placement);
-    if (intersectsRecent(placement, placements, placements.length)) {
+    const placement = writePlacement(path, itemIndex, desiredDistance, {});
+    if (intersectsRecent(placement, placements)) {
       const spacingStep = Math.max(path.metrics.rowPitch, path.metrics.itemHeight / 2);
       let low = desiredDistance;
       let high = desiredDistance;
       let bestDistance = desiredDistance;
-
       for (let attempt = 0; attempt < 6; attempt += 1) {
         high += spacingStep;
         writePlacement(path, itemIndex, high, placement);
-        if (!intersectsRecent(placement, placements, placements.length)) {
-          bestDistance = high;
-          break;
-        }
+        if (!intersectsRecent(placement, placements)) { bestDistance = high; break; }
       }
-
       for (let attempt = 0; attempt < 7; attempt += 1) {
         const mid = (low + high) / 2;
         writePlacement(path, itemIndex, mid, placement);
-        if (intersectsRecent(placement, placements, placements.length)) {
-          low = mid;
-        } else {
-          high = mid;
-          bestDistance = mid;
-        }
+        if (intersectsRecent(placement, placements)) low = mid;
+        else { high = mid; bestDistance = mid; }
       }
-
       writePlacement(path, itemIndex, bestDistance, placement);
       placement.actualDistance = bestDistance;
+      placement.desiredDistance = desiredDistance;
     }
-
     placements.push(placement);
   }
-
   return placements;
 }
 
@@ -251,27 +163,12 @@ function computeResponsivePath(width, height, slotCount) {
   const gap = compact ? MOBILE_GAP : tablet ? TABLET_GAP : DESKTOP_GAP;
   const itemHeight = compact ? MOBILE_SLOT_HEIGHT : tablet ? TABLET_SLOT_HEIGHT : DESKTOP_SLOT_HEIGHT;
   const padY = compact ? MOBILE_PAD_Y : tablet ? TABLET_PAD_Y : DESKTOP_PAD_Y;
-  const minRows = compact ? 5 : 3;
-  const safeHeight = Math.max(height, itemHeight * minRows);
+  const safeHeight = Math.max(height, itemHeight * (compact ? 5 : 3));
   const columns = clamp(Math.floor((safeWidth + gap) / (minColumnWidth + gap)), 1, MAX_COLUMNS);
-  const idealWidth = Math.floor((safeWidth - gap * (columns - 1)) / columns);
-  const itemWidth = clamp(idealWidth, minColumnWidth, maxColumnWidth);
-  const boardWidth = itemWidth * columns + gap * (columns - 1);
-  const padX = Math.max(0, Math.floor((safeWidth - boardWidth) / 2));
-  const metrics = computeTrackMetrics({
-    width: safeWidth,
-    height: safeHeight,
-    itemWidth,
-    itemHeight,
-    gapX: gap,
-    gapY: gap,
-    padX,
-    padY
-  });
-  return {
-    metrics,
-    path: buildSerpentinePath(metrics, slotCount)
-  };
+  const itemWidth = clamp(Math.floor((safeWidth - gap * (columns - 1)) / columns), minColumnWidth, maxColumnWidth);
+  const padX = Math.max(0, Math.floor((safeWidth - (itemWidth * columns + gap * (columns - 1))) / 2));
+  const metrics = computeTrackMetrics({ width: safeWidth, height: safeHeight, itemWidth, itemHeight, gapX: gap, gapY: gap, padX, padY });
+  return { metrics, path: buildSerpentinePath(metrics, slotCount) };
 }
 
 const stage = document.getElementById('serpentine-stage');
@@ -280,59 +177,79 @@ const progress = document.getElementById('serpentine-progress');
 const metricColumns = document.getElementById('metric-columns');
 const metricRows = document.getElementById('metric-rows');
 const metricItems = document.getElementById('metric-items');
+const svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+svgPath.setAttribute('pathLength', '1000');
+svg.replaceChildren(svgPath);
 
+const cardNodes = demoItems.map((item) => {
+  const card = document.createElement('article');
+  card.className = 'serpentine-card';
+  card.style.setProperty('--accent', item.accent);
+  card.innerHTML = `<p class="serpentine-eyebrow">${item.eyebrow}</p><h2>${item.title}</h2><p class="serpentine-subtitle">${item.subtitle}</p>`;
+  card.hidden = true;
+  stage.appendChild(card);
+  return card;
+});
+
+let layout = null;
+let maxOffsetPx = 0;
 let displayOffsetPx = 0;
 let targetOffsetPx = 0;
 let frame = 0;
+let lastFrameTime = 0;
+let layoutDirty = true;
 
-function render() {
+function rebuildLayout() {
   const rect = stage.getBoundingClientRect();
-  const layout = computeResponsivePath(Math.max(320, Math.floor(rect.width)), Math.max(440, Math.floor(rect.height)), demoItems.length + 18);
-  const maxOffsetPx = Math.max(0, (demoItems.length - layout.metrics.visibleSlotCount) * layout.metrics.rowPitch);
+  const width = Math.max(320, Math.floor(rect.width));
+  const height = Math.max(440, Math.floor(rect.height));
+  layout = computeResponsivePath(width, height, demoItems.length + 18);
+  const lastItemDistance = layout.path.slotDistances[Math.max(0, demoItems.length - 1)] ?? 0;
+  const visibleDistance = layout.path.slotDistances[Math.max(0, layout.metrics.visibleSlotCount - 1)] ?? 0;
+  maxOffsetPx = Math.max(0, lastItemDistance - visibleDistance);
   targetOffsetPx = clamp(targetOffsetPx, 0, maxOffsetPx);
-  displayOffsetPx += (targetOffsetPx - displayOffsetPx) * 0.16;
-  if (Math.abs(targetOffsetPx - displayOffsetPx) < 0.2) displayOffsetPx = targetOffsetPx;
+  displayOffsetPx = clamp(displayOffsetPx, 0, maxOffsetPx);
 
   metricColumns.textContent = `${layout.metrics.columnsVisible} columns`;
   metricRows.textContent = `${layout.metrics.rowsPerCol} rows`;
   metricItems.textContent = `${demoItems.length} items`;
-
-  const points = layout.path.slotDistances
-    .slice(0, Math.min(layout.path.metrics.visibleSlotCount + 6, layout.path.slotDistances.length))
-    .map((distance, index) => {
-      const point = sampleAt(layout.path, distance);
-      return `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-    })
-    .join(' ');
-
-  svg.setAttribute('viewBox', `0 0 ${Math.max(320, Math.floor(rect.width))} ${Math.max(440, Math.floor(rect.height))}`);
-  svg.innerHTML = `<path d="${points}" pathLength="1000"></path>`;
-
-  stage.querySelectorAll('.serpentine-card').forEach((node) => node.remove());
-  const placements = resolvePlacements(layout.path, demoItems.length, displayOffsetPx);
-  for (const placement of placements) {
-    const item = demoItems[placement.itemIndex];
-    const card = document.createElement('article');
-    card.className = 'serpentine-card';
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  const points = layout.path.slotDistances.slice(0, Math.min(layout.metrics.visibleSlotCount + 6, layout.path.slotDistances.length)).map((distance, index) => {
+    const point = sampleAt(layout.path, distance);
+    return `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+  }).join(' ');
+  svgPath.setAttribute('d', points);
+  for (const card of cardNodes) {
     card.style.width = `${layout.metrics.itemWidth}px`;
     card.style.height = `${layout.metrics.itemHeight}px`;
-    card.style.transform = `translate3d(${placement.left}px, ${placement.top}px, 0)`;
-    card.style.setProperty('--accent', item.accent);
-    card.innerHTML = `
-      <p class="serpentine-eyebrow">${item.eyebrow}</p>
-      <h2>${item.title}</h2>
-      <p class="serpentine-subtitle">${item.subtitle}</p>
-    `;
-    stage.appendChild(card);
   }
+  layoutDirty = false;
+}
 
-  progress.style.transform = `translate3d(0, ${Math.max(0, displayOffsetPx / Math.max(1, layout.metrics.rowPitch) * 4)}px, 0)`;
-
-  if (Math.abs(targetOffsetPx - displayOffsetPx) > 0.2) {
-    frame = window.requestAnimationFrame(render);
-  } else {
-    frame = 0;
+function paint() {
+  const placements = resolvePlacements(layout.path, demoItems.length, displayOffsetPx);
+  const visible = new Set();
+  for (const placement of placements) {
+    const card = cardNodes[placement.itemIndex];
+    visible.add(placement.itemIndex);
+    card.hidden = false;
+    card.style.transform = `translate3d(${placement.left.toFixed(2)}px, ${placement.top.toFixed(2)}px, 0)`;
   }
+  for (let index = 0; index < cardNodes.length; index += 1) if (!visible.has(index)) cardNodes[index].hidden = true;
+  progress.style.transform = `translate3d(0, ${Math.max(0, displayOffsetPx / Math.max(1, layout.metrics.rowPitch) * 4).toFixed(2)}px, 0)`;
+}
+
+function render(now) {
+  frame = 0;
+  if (layoutDirty || !layout) rebuildLayout();
+  const dt = lastFrameTime ? Math.min(0.05, (now - lastFrameTime) / 1000) : 1 / 60;
+  lastFrameTime = now;
+  const alpha = 1 - Math.exp(-FOLLOW_RATE * dt);
+  displayOffsetPx += (targetOffsetPx - displayOffsetPx) * alpha;
+  if (Math.abs(targetOffsetPx - displayOffsetPx) < 0.08) displayOffsetPx = targetOffsetPx;
+  paint();
+  if (Math.abs(targetOffsetPx - displayOffsetPx) >= 0.08) requestRender();
+  else lastFrameTime = 0;
 }
 
 function requestRender() {
@@ -341,10 +258,13 @@ function requestRender() {
 
 stage.addEventListener('wheel', (event) => {
   event.preventDefault();
-  targetOffsetPx += event.deltaY * 1.2;
+  targetOffsetPx = clamp(targetOffsetPx + event.deltaY * 1.2, 0, maxOffsetPx);
   requestRender();
 }, { passive: false });
 
-window.addEventListener('resize', requestRender);
+const resizeObserver = new ResizeObserver(() => {
+  layoutDirty = true;
+  requestRender();
+});
+resizeObserver.observe(stage);
 requestRender();
-
