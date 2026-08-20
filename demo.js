@@ -8,7 +8,7 @@ const demoItems = [
   { id: 'radios', title: 'Radio Mesh', subtitle: 'nodes, hops, and airtime', eyebrow: 'wireless', accent: '#2d8577' },
   { id: 'weather', title: 'Weather', subtitle: 'local conditions and trends', eyebrow: 'ambient', accent: '#6d59c9' },
   { id: 'announcer', title: 'Announcer', subtitle: 'speech queue and alerts', eyebrow: 'voice', accent: '#b85e43' },
-  { id: 'energy', title: 'Energy', subtitle: 'load, export, subtitle: 'power', accent: '#8b7d29' },
+  { id: 'energy', title: 'Energy', subtitle: 'load, export, and battery', eyebrow: 'power', accent: '#8b7d29' },
   { id: 'mail', title: 'Mailroom', subtitle: 'label flow and drafts', eyebrow: 'inbox', accent: '#9b4c69' },
   { id: 'sensors', title: 'Sensors', subtitle: 'temperature and presence tiles', eyebrow: 'signals', accent: '#3d79aa' },
   { id: 'notes', title: 'Notes', subtitle: 'capture stream and daily logs', eyebrow: 'text', accent: '#4f7f44' },
