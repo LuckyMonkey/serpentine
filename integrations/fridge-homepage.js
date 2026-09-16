@@ -1,4 +1,27 @@
 import { mountSerpentine } from '../src/index.ts';
+import { faviconPalette } from '../src/favicon.ts';
+
+const palettes = new Map();
+function colorFromIcon(image, card) {
+  try {
+    let palette = palettes.get(image.src);
+    if (!palettes.has(image.src)) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 32;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.drawImage(image, 0, 0, 32, 32);
+      palette = faviconPalette(context.getImageData(0, 0, 32, 32).data, 32, 32);
+      palettes.set(image.src, palette);
+    }
+    if (!palette) return;
+    card.style.setProperty('--icon-edge', palette.edge);
+    card.style.setProperty('--icon-tint', palette.tint);
+    card.style.setProperty('--card-ink', palette.ink);
+    card.dataset.palette = 'favicon';
+  } catch {
+    // Cross-origin or undecodable icons keep the neutral, readable default.
+  }
+}
 
 const root = document.getElementById('serpentine-root');
 const links = JSON.parse(document.getElementById('homepage-links')?.textContent || '[]');
@@ -15,13 +38,14 @@ const cards = links.map(item => {
   card.className = 'card';
   card.href = item.link;
   card.title = item.link;
-  card.style.setProperty('--accent', item.accent);
   const icon = document.createElement('span');
   icon.className = 'icon-well';
   icon.setAttribute('aria-hidden', 'true');
   const image = document.createElement('img');
   image.className = 'favicon';
   image.alt = '';
+  image.decoding = 'async';
+  image.addEventListener('load', () => colorFromIcon(image, card), { once: true });
   image.addEventListener('error', () => {
     const fallback = document.createElement('span');
     fallback.className = 'icon-fallback';
@@ -37,7 +61,7 @@ const cards = links.map(item => {
   name.textContent = item.name;
   const url = document.createElement('span');
   url.className = 'url';
-  url.textContent = item.url || item.host || item.link;
+  url.textContent = item.description || item.url || item.host || item.link;
   copy.append(name, url);
   card.append(icon, copy);
   board.append(card);

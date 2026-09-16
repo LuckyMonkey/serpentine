@@ -75,6 +75,7 @@ export function mountSerpentine(element: HTMLElement, cards: HTMLElement[], onSt
     cards.forEach(card => {
       card.style.width = `${layout.metrics.itemWidth}px`;
       card.style.height = `${layout.metrics.itemHeight}px`;
+      card.style.setProperty('--card-height', `${layout.metrics.itemHeight}px`);
     });
     settle();
   }

@@ -47,7 +47,9 @@ view.step(1);
 view.destroy();
 ```
 
-The Fridge adapter reads the existing PHP-generated `homepage-links` JSON. It preserves each link, name, display URL, accent and favicon, with letter fallbacks for failed icons. Load `integrations/fridge-homepage.css` after the existing homepage styles. The board must have zero inset because the engine already supplies its padding.
+The Fridge adapter reads the PHP-generated `homepage-links` JSON. It preserves link destinations and names; optional `description` text replaces the displayed URL, while the destination remains in the link tooltip. Favicons fill the card's height on the left. Their decoded pixels supply a feathered edge color and a full-width gradient, with contrasting text and neutral/letter fallbacks for unavailable images. Hostname-derived accent colors are no longer used by the JavaScript cards.
+
+Load `integrations/fridge-homepage.css` after the existing homepage styles. The board must have zero inset because the engine already supplies its padding. The view exposes `--card-height` for responsive icon sizing. `integrations/fridge-provider.patch` records the small PHP change to accept validated local favicon paths and descriptions; it applies to the previously deployed c6a1abd homepage. Personal link data and downloaded brand assets stay on Fridge, outside this public repository. See [UI integration and deployment notes](docs/homepage-ui-refresh.md).
 
 The adapter does not require React or new server packages. It can be bundled using the homepage's existing esbuild installation. See [the investigation and rollout notes](docs/ux-audit.md).
 
@@ -59,6 +61,7 @@ The adapter does not require React or new server packages. It can be bundled usi
 - `src/motion.ts`: testable wheel interpretation and monotone, finite-duration slot motion.
 - `src/layout.ts`: responsive homepage dimensions.
 - `src/view.ts`: browser input, animation scheduling, focus, visibility and resize lifecycle.
+- `src/favicon.ts`: edge/dominant pixel sampling and readable gradient colors.
 - `integrations/fridge-homepage.js`: existing homepage data to stable link nodes.
 
 The low-level functions `computeTrackMetrics`, `buildSerpentinePath`, `sampleAt`, and `resolvePlacements` remain available. Their path parameter is logical row-pitch distance, not physical arc length. Turn samples now leave the resting grid vertically, so callers must use the engine's reserved turn padding.
