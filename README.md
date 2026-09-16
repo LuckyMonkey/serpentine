@@ -1,176 +1,64 @@
 # Serpentine
 
-`serpentine` is the extracted serpentine track engine from the fridge dashboard.
+A shared layout and motion engine for the Fridge homepage and a static demo.
 
-This repo intentionally contains only the reusable serpentine code and the smallest demo layer needed to show it working:
+## Interaction
 
-- the core slot, path, and collision-resolution engine
-- a root-level static demo page for GitHub Pages
-- tests covering the engine behavior
+- One ordinary mouse-wheel event advances one link position.
+- Targets are integer slot indices. There is no delayed snap or pixel accumulation for a notched wheel.
+- Reversing the wheel cancels queued travel and moves toward the adjacent slot in the new direction.
+- Fine pixel input and touch swipes accumulate into steps. Arrow keys move one position; Page Up/Down move a visible window; Home/End reach the bounds.
+- Motion respects reduced-motion preferences, stops scheduling animation frames when settled, and preserves a valid slot on resize.
+- Ctrl/Meta-wheel retains browser zoom. The demo releases wheel input to the surrounding page at its limits.
 
-The source of truth for the final behavior was `/home/fridge/docker/dashboard`, specifically the dashboard's `packages/serpentine-engine` and web serpentine viewport code. This repo is the cleaned public extraction of that work.
+Browser wheel events do not expose a standard device type or physical notch count. Line/page events and common integral pixel deltas of 40 or more are treated as discrete steps; smaller pixel deltas accumulate at 40 pixels per step. A fast trackpad can produce ambiguous events. Physical device tuning remains separate from automated event tests.
 
-## Demo
+## Geometry
 
-Live demo:
+Resting cards occupy alternating columns. Each logical step moves an item to an adjacent slot. A smooth phase shared by all cards has zero velocity at every slot boundary.
 
-- `https://luckymonkey.github.io/serpentine/`
+Column transfers follow rounded U-shaped paths through reserved lanes above and below the grid. This clearance prevents wide cards from cutting through their neighbors. It costs visible rows: at 1000×600, the homepage has eight resting positions instead of twelve. Narrow viewports use a vertical list; short viewports use a horizontal row.
 
-Direct repo links:
+No per-card collision pushes or iterative placement corrections run during animation. Entry and exit cards use the same phase as the visible grid and fade at its ends. Nodes stay mounted, so movement does not rebuild the link list.
 
-- Demo page source: [index.html](/home/fridge/serpentine/index.html:1)
-- Demo CSS: [demo.css](/home/fridge/serpentine/demo.css:1)
-- Demo script: [demo.js](/home/fridge/serpentine/demo.js:1)
+## Develop and verify
 
-GitHub Pages is now expected to serve the repo root directly from `main`. The live page no longer depends on a bundled subdirectory path.
-
-## What The Engine Does
-
-The serpentine engine models a bounded board where items travel through alternating columns:
-
-- even columns run top-to-bottom
-- odd columns run bottom-to-top
-- path samples stay axis-aligned
-- placement resolution preserves readable spacing through the turn regions
-- visible items can slide through the viewport without overlapping
-
-The repo is split so the engine can be reused independently from the demo skin.
-
-## Repo Layout
-
-- `src/engine/slots.ts`: track metrics and slot generation
-- `src/engine/path.ts`: axis-aligned path construction and path sampling
-- `src/engine/constraints.ts`: collision-aware placement solving
-- `index.html`, `demo.css`, `demo.js`: flat static demo for GitHub Pages
-- `tests/engine.test.ts`: regression coverage pulled from the dashboard implementation
-
-## Local Development
-
-```bash
-git clone git@github.com:LuckyMonkey/serpentine.git
-cd serpentine
-npm install
-npm run test
+```sh
+npm ci
+npm test
 npm run typecheck
+npm run build
 ```
 
-Open the static demo directly:
+The generated `dist/demo.js` and `dist/fridge-homepage.js` are checked in so the repository root works on GitHub Pages without an additional build service. Open `index.html` directly for the demo after building. The demo and homepage bundle the same TypeScript implementation.
 
-```bash
-python3 -m http.server
-```
-
-Then open `http://localhost:8000/`.
-
-## How To Implement It
-
-The intended integration flow is:
-
-1. Measure the viewport that will host the serpentine board.
-2. Choose item dimensions, gaps, and padding for that viewport.
-3. Call `computeTrackMetrics(...)`.
-4. Call `buildSerpentinePath(metrics, slotCount)`.
-5. Drive an `offsetPx` value from wheel, swipe, drag, or another motion source.
-6. Call `resolvePlacements(path, itemCount, offsetPx)`.
-7. Render the visible cards at the returned `left` and `top` coordinates.
-
-Minimal example:
+## Integration
 
 ```ts
-import {
-  buildSerpentinePath,
-  computeTrackMetrics,
-  resolvePlacements
-} from "./src/index";
+import { mountSerpentine } from './src/index';
 
-const metrics = computeTrackMetrics({
-  width,
-  height,
-  itemWidth: 280,
-  itemHeight: 72,
-  gapX: 20,
-  gapY: 16,
-  padX: 24,
-  padY: 24
+// The host must have a measured height, position: relative, and overflow: hidden.
+// Cards must be absolutely positioned within its coordinate system.
+const view = mountSerpentine(host, cardElements, (first, last, total) => {
+  status.textContent = first + '–' + last + ' of ' + total;
 });
-
-const path = buildSerpentinePath(metrics, itemCount + 12);
-const placements = resolvePlacements(path, itemCount, offsetPx);
+view.step(1);
+// On teardown:
+view.destroy();
 ```
 
-## How It Works Fundamentally
+The Fridge adapter reads the existing PHP-generated `homepage-links` JSON. It preserves each link, name, display URL, accent and favicon, with letter fallbacks for failed icons. Load `integrations/fridge-homepage.css` after the existing homepage styles. The board must have zero inset because the engine already supplies its padding.
 
-The layout is built in four stages:
+The adapter does not require React or new server packages. It can be bundled using the homepage's existing esbuild installation. See [the investigation and rollout notes](docs/ux-audit.md).
 
-1. `slots.ts` computes a bounded grid and flips every odd column so the row order alternates.
-2. `path.ts` converts those slot centers into one continuous axis-aligned path and records cumulative distance for each slot.
-3. Your UI decides the current scroll offset in pixels.
-4. `constraints.ts` places each item at its desired path distance and nudges items forward in turn regions whenever a raw placement would overlap a recently placed neighbor.
+## Modules
 
-That last step is the key difference between a naive snake layout and the working dashboard version. The engine does not just map index to slot; it solves for a collision-free placement in the tight corner transitions.
+- `src/engine/slots.ts`: viewport capacity, resting slots, and turn clearance.
+- `src/engine/path.ts`: rounded turn sampling and shared slot phase.
+- `src/engine/constraints.ts`: deterministic visible placements; no collision nudging.
+- `src/motion.ts`: testable wheel interpretation and monotone, finite-duration slot motion.
+- `src/layout.ts`: responsive homepage dimensions.
+- `src/view.ts`: browser input, animation scheduling, focus, visibility and resize lifecycle.
+- `integrations/fridge-homepage.js`: existing homepage data to stable link nodes.
 
-## How The CSS Works
-
-The live demo CSS is intentionally framework-free and split into a few clear layers:
-
-- `:root` sets the type stack, color palette, and page atmosphere.
-- `.demo-shell` defines the full-page grid for copy, metrics, stage, and docs.
-- `.serpentine-stage` is the bounded viewport that clips the moving cards.
-- `.serpentine-card` defines the card surface, depth, and accent wash.
-- `.demo-docs` is a responsive two-column documentation grid that collapses to one column on narrow screens.
-
-The only dynamic card styling input is `--accent`, which the script assigns per item. Everything else stays static so the page remains easy to reason about and safe for GitHub Pages.
-
-## Engine API
-
-### `computeTrackMetrics(config)`
-
-Computes the board geometry:
-
-- `rowsPerCol`
-- `columnsVisible`
-- `visibleSlotCount`
-- `rowPitch`
-- `colPitch`
-
-### `buildSlots(metrics, slotCount)`
-
-Returns the slot rectangles in serpentine order.
-
-### `buildSerpentinePath(metrics, slotCount)`
-
-Builds an axis-aligned path through the slot centers and records:
-
-- the segment list
-- cumulative slot distances
-- the total path length
-
-### `sampleAt(path, distance)`
-
-Samples a point and tangent on the path at any distance, including distances before the first slot and after the last slot.
-
-### `resolvePlacements(path, itemCount, offsetPx, overscan?)`
-
-Calculates visible placements for a scrolling window while nudging items apart near tight turn regions so cards do not overlap.
-
-## Validation
-
-The current validation set checks:
-
-- alternating column direction
-- horizontal turn tangents
-- randomized non-overlap across offsets
-- bounded clearance in turn regions
-
-Run:
-
-```bash
-npm run test
-npm run typecheck
-```
-
-## Notes
-
-- The demo is intentionally minimal and exists to expose the engine, not to recreate the entire fridge dashboard UI.
-- The public Pages entrypoint is the flat static root page, not a bundled asset pipeline.
-- Homepage-only code, dashboard-specific actions, icon systems, and unrelated styles were left out on purpose.
+The low-level functions `computeTrackMetrics`, `buildSerpentinePath`, `sampleAt`, and `resolvePlacements` remain available. Their path parameter is logical row-pitch distance, not physical arc length. Turn samples now leave the resting grid vertically, so callers must use the engine's reserved turn padding.

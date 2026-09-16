@@ -1,0 +1,7 @@
+body { overflow: auto; }
+html.js-ready body { overflow: hidden; }
+#serpentine-root { height: 100dvh; }
+html.js-ready .static-links { display: none; }
+.cards { inset: 0; }
+.shell:focus-visible { outline: 2px solid #476f97; outline-offset: -3px; }
+.hint { font-variant-numeric: tabular-nums; }

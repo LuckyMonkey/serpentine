@@ -4,6 +4,7 @@
   "description": "Reusable serpentine track engine plus a GitHub Pages demo.",
   "type": "module",
   "scripts": {
+    "build": "node tools/build.mjs",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -17,6 +18,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.7.2",
+    "esbuild": "^0.27.3",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

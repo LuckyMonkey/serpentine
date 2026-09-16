@@ -34,6 +34,12 @@ export interface PathSample {
   tangentY: number;
 }
 
+function easedSlots(value: number) {
+  const whole = Math.floor(value);
+  const phase = value - whole;
+  return whole + phase * phase * (3 - 2 * phase);
+}
+
 function makeSegments(points: PathPoint[], slotPitch: number) {
   const segments: PathSegment[] = [];
   let cursor = 0;
@@ -113,6 +119,49 @@ function findSegment(path: SerpentinePath, u: number) {
   return path.segments[Math.max(0, Math.min(path.segments.length - 1, low))] ?? null;
 }
 
+function sampleTurn(path: SerpentinePath, segment: PathSegment, progress: number): PathSample {
+  const { from, to } = segment;
+  const width = to.x - from.x;
+  const depth = path.metrics.turnDepth;
+  const direction = path.slots[from.slotIndex].col % 2 === 0 ? 1 : -1;
+  // Keep a card vertically clear by the point its edge crosses the column gap.
+  const { gapX, gapY } = path.metrics;
+  const clearanceRadius = gapX + gapY + Math.sqrt(2 * gapX * gapY);
+  const radius = Math.max(0, Math.min(clearanceRadius, depth / 2, width / 2));
+  const leg = depth - radius;
+  const arc = Math.PI * radius / 2;
+  const bridge = width - radius * 2;
+  const length = leg * 2 + arc * 2 + bridge;
+  let distance = progress * length;
+  let x = 0, y = 0, tangentX = 0, tangentY = 1;
+  if (distance <= leg) {
+    y = distance;
+  } else if ((distance -= leg) <= arc && radius > 0) {
+    const angle = distance / radius;
+    x = radius * (1 - Math.cos(angle));
+    y = leg + radius * Math.sin(angle);
+    tangentX = Math.sin(angle);
+    tangentY = Math.cos(angle);
+  } else if ((distance -= arc) <= bridge) {
+    x = radius + distance;
+    y = depth;
+    tangentX = 1;
+    tangentY = 0;
+  } else if ((distance -= bridge) <= arc && radius > 0) {
+    const angle = distance / radius;
+    x = width - radius + radius * Math.sin(angle);
+    y = leg + radius * Math.cos(angle);
+    tangentX = Math.cos(angle);
+    tangentY = -Math.sin(angle);
+  } else {
+    distance -= arc;
+    x = width;
+    y = leg - distance;
+    tangentY = -1;
+  }
+  return { x: from.x + x, y: from.y + direction * y, tangentX, tangentY: direction * tangentY };
+}
+
 export function sampleAt(path: SerpentinePath, u: number): PathSample {
   if (path.points.length === 0) {
     return { x: 0, y: 0, tangentX: 0, tangentY: 1 };
@@ -121,7 +170,7 @@ export function sampleAt(path: SerpentinePath, u: number): PathSample {
   if (u <= 0) {
     const first = path.points[0];
     const segment = path.segments[0];
-    const scale = path.metrics.rowPitch > 0 ? u / path.metrics.rowPitch : 0;
+    const scale = path.metrics.rowPitch > 0 ? easedSlots(u / path.metrics.rowPitch) : 0;
     const dx = segment ? segment.to.x - segment.from.x : 0;
     const dy = segment ? segment.to.y - segment.from.y : path.metrics.rowPitch;
     return {
@@ -136,7 +185,7 @@ export function sampleAt(path: SerpentinePath, u: number): PathSample {
     const last = path.points[path.points.length - 1];
     const segment = path.segments[path.segments.length - 1];
     const extra = u - path.totalLength;
-    const scale = path.metrics.rowPitch > 0 ? extra / path.metrics.rowPitch : 0;
+    const scale = path.metrics.rowPitch > 0 ? easedSlots(extra / path.metrics.rowPitch) : 0;
     const dx = segment ? segment.to.x - segment.from.x : 0;
     const dy = segment ? segment.to.y - segment.from.y : path.metrics.rowPitch;
     return {
@@ -152,7 +201,13 @@ export function sampleAt(path: SerpentinePath, u: number): PathSample {
     return { x: path.points[0].x, y: path.points[0].y, tangentX: 0, tangentY: 1 };
   }
 
-  const progress = segment.length === 0 ? 0 : (u - segment.start) / segment.length;
+  const phase = segment.length === 0 ? 0 : (u - segment.start) / segment.length;
+  // Zero speed at each slot makes fast multi-step travel continuous even when
+  // a card changes between a short straight and a longer rounded turn.
+  const progress = phase * phase * (3 - 2 * phase);
+  if (segment.axis === 'horizontal' && path.metrics.turnDepth > 0) {
+    return sampleTurn(path, segment, progress);
+  }
   return {
     x: segment.from.x + (segment.to.x - segment.from.x) * progress,
     y: segment.from.y + (segment.to.y - segment.from.y) * progress,
@@ -162,17 +217,8 @@ export function sampleAt(path: SerpentinePath, u: number): PathSample {
 }
 
 export function tangentAt(path: SerpentinePath, u: number) {
-  const segment =
-    u <= 0
-      ? path.segments[0]
-      : u >= path.totalLength
-        ? path.segments[path.segments.length - 1]
-        : findSegment(path, u);
-
-  return {
-    x: segment?.tangentX ?? 0,
-    y: segment?.tangentY ?? 1
-  };
+  const sample = sampleAt(path, u);
+  return { x: sample.tangentX, y: sample.tangentY };
 }
 
 export function positionAt(path: SerpentinePath, u: number) {

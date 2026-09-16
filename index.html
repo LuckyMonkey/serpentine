@@ -1,29 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lucky Monkey Gallery</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="script.js" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Serpentine</title>
+  <link rel="stylesheet" href="demo.css">
+  <script defer src="dist/demo.js"></script>
 </head>
 <body>
-    <header>
-        <h1>Welcome to the Lucky Monkey Gallery</h1>
+  <main class="demo-shell">
+    <header class="demo-copy">
+      <p class="demo-kicker">Serpentine</p>
+      <h1>A place for every step.</h1>
+      <p class="demo-summary">One wheel notch advances one position. Follow the links around the turns, then stop on a complete grid.</p>
     </header>
-    <main>
-        <section>
-            <h2>Our Collection</h2>
-            <p>Explore our amazing collection of artwork!</p>
-            <div class="gallery">
-                <img src="images/art1.jpg" alt="Artwork 1">
-                <img src="images/art2.jpg" alt="Artwork 2">
-                <img src="images/art3.jpg" alt="Artwork 3">
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2026 Lucky Monkey. All rights reserved.</p>
-    </footer>
+    <div class="demo-metrics">
+      <button id="previous" type="button">← Previous</button>
+      <span id="serpentine-status" role="status"></span>
+      <button id="next" type="button">Next →</button>
+    </div>
+    <section id="serpentine-stage" class="serpentine-stage" tabindex="0" aria-label="Serpentine cards. Use the wheel or arrow keys to move."></section>
+    <p class="demo-summary">Wheel, swipe, or use the arrow keys. Home and End jump to the first and last positions. Reduced motion follows your device setting.</p>
+  </main>
 </body>
 </html>

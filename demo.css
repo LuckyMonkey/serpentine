@@ -106,10 +106,12 @@ pre {
 
 .serpentine-card {
   position: absolute;
-  padding: 14px 16px 16px;
-  display: grid;
-  align-content: start;
-  border-radius: 22px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+  border-radius: 12px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 249, 238, 0.88)),
     linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%);
@@ -117,7 +119,6 @@ pre {
   box-shadow:
     0 20px 40px rgba(78, 59, 28, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(10px);
   will-change: transform;
 }
 
@@ -132,7 +133,7 @@ pre {
 
 .serpentine-eyebrow {
   position: relative;
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -144,6 +145,9 @@ pre {
   margin: 0;
   font-size: clamp(1rem, 1.8vw, 1.15rem);
   line-height: 1.1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .serpentine-subtitle {
@@ -229,4 +233,3 @@ pre {
     grid-template-columns: 1fr;
   }
 }
-
