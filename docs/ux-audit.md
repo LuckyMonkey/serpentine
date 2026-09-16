@@ -28,7 +28,7 @@ Turn clearance reduces visible rows. At 1000×600 there are eight slots instead 
 
 ## Validation and rollout
 
-Implementation and build artifacts are on branch `fix/predictable-slot-motion` in `/home/freezer/Projects/serpentine`. The user requested a documented commit and sync to GitHub. The live server is unchanged apart from its required audit command log.
+Implementation and build artifacts are on branch `fix/predictable-slot-motion` in `/home/freezer/Projects/serpentine`. Commit c6a1abd was synced to GitHub, then deployed to Fridge at the user's request on 2026-09-16T14:29:43Z. See [deployment and recovery details](homepage-deployment.md).
 
 Automated engine tests cover exact alignment, turn clearance, entry/exit overlap, viewport bounds, fractional continuity, wheel units, fast bursts, reversal, frame-rate independence and reduced motion. Browser checks use a local response substitution for the new bundle and CSS, preserving the exact live link data without replacing the server's files.
 
@@ -43,4 +43,4 @@ Physical wheel and trackpad feel must still be checked by the user; synthetic ev
 
 Manual acceptance: one slow notch in each direction; a fast burst then reversal; click a settled link; resize while moving; use arrow keys and Home/End; check a phone swipe and reduced-motion mode. Every settled layout should contain complete non-overlapping cards, and a direction reversal should respond on the next animation frame.
 
-For deployment, back up the existing homepage sources, bundle and index first. Copy the shared source and adapter into the homepage frontend, add the override CSS, rebuild with its existing esbuild, and version the stylesheet/script URLs in `index.php`. The existing bind mounts serve changed files without restarting containers. Keep the old bundle and index together for manual rollback. Publishing to GitHub requires a separate commit/push instruction.
+Deployment preserved the original index, adapter, build script and bundle in a dated backup. The shared source and adapter are now installed, and versioned CSS/JavaScript filenames are referenced by `index.php`. The existing bind mounts served the change without restarting containers. Live Firefox checks passed for exact wheel stops, turn clearance, reversal, Home, Ctrl-wheel, and an unclipped phone-sized viewport. All 18 link names, destinations and display URLs were preserved.

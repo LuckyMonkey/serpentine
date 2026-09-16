@@ -11,12 +11,12 @@ Investigate the jagged serpentine UX on the Fridge homepage, replace the movemen
 - Upstream baseline: `1608b1a`.
 - Read `docs/ux-audit.md` for reproduced failures and verification, and `README.md` for the implementation contract.
 - Source, tests, homepage adapter/CSS and generated browser bundles belong in this checkpoint.
-- The homepage still serves the original bundle. No production deployment, container restart, package installation on Fridge, or main-branch merge has occurred.
+- The user subsequently authorized deployment, completed at 2026-09-16T14:29:43Z. The homepage now serves c6a1abd through versioned assets. No container restart, package installation on Fridge, or main-branch merge occurred. See `docs/homepage-deployment.md` for validation, hashes and recovery paths.
 - SSH identity is `fridge@fridge`; obtain authentication through the existing session/user context. Never put its password in files or git.
 
-## Next phase: review and deploy the homepage
+## Deployment procedure used
 
-1. Review the visible-row tradeoff: at 1000×600, rounded turn lanes reduce capacity from twelve to eight. Physical wheel feel remains unverified.
+1. The visible-row tradeoff is documented: at 1000×600, rounded turn lanes reduce capacity from twelve to eight. Physical wheel feel remains unverified.
 2. Read `/home/fridge/AGENTS.md` and `/home/fridge/fridge-docs/markdown/serpentine-homepage-deployment-status.md`. Record remote commands in `/home/fridge/bootstrap-notes/agent-command-log.md`.
 3. Back up `/home/fridge/fridge-homepage/index.php`, `frontend/serpentine-app.jsx`, and `public/serpentine.bundle.js` together in a new dated directory under `deploy-backups`. Do not overwrite an existing backup.
 4. Copy this repository's `src/` into a new `frontend/serpentine-v2/` directory. Stage `integrations/fridge-homepage.js` as the homepage adapter, changing its import to `./serpentine-v2/index.ts`. The existing `tools/build.mjs` can bundle it without React or new server dependencies.
@@ -24,7 +24,11 @@ Investigate the jagged serpentine UX on the Fridge homepage, replace the movemen
 6. Build and validate the staged source before publishing the new index/bundle. The existing PHP/nginx bind mounts expose updates; no container restart is needed.
 7. Check actual HTTP-served bundle hashes and browser behavior. Update the Fridge deployment markdown with exact paths, hashes and manual recovery instructions.
 
-Manual recovery requires restoring the matching old index and bundle; retained source backups support rebuilding. No automatic rollback has been implemented or claimed.
+Manual recovery requires restoring the old index; it references the old bundle, which remains available and unchanged. Retained adapter and build-script backups support rebuilding. No automatic rollback has been implemented or claimed.
+
+## Remaining review
+
+Reload the live homepage and try the actual mouse and trackpad. Automated tests confirm destinations, clearance, reversal and the mobile viewport; they cannot determine whether the physical interaction feels pleasant. Source and deployment documentation are on the feature branch; merging it into main remains separate.
 
 ## Quick local verification
 
