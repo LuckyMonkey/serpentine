@@ -6,6 +6,7 @@ Investigate the jagged serpentine UX on the Fridge homepage, replace the movemen
 
 ## Resume here
 
+- Latest update: UI1 was deployed at 2026-09-16T15:08:47Z from `ba5d4fe`. Full-height favicon-derived gradients and 37 curated links are live. Code is pushed on the existing feature branch. See `docs/homepage-ui-refresh.md` for current validation and recovery; the earlier movement deployment below is historical. Private history/link data must stay out of git.
 - Checkout: `/home/freezer/Projects/serpentine`.
 - Branch: `fix/predictable-slot-motion`.
 - Upstream baseline: `1608b1a`.

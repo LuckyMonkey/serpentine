@@ -1,5 +1,7 @@
 # Serpentine homepage deployment — 2026-09-16
 
+Historical movement release. The later UI1 refresh is now live; see [current UI deployment notes](homepage-ui-refresh.md).
+
 User authorization: apply the fixes to the homepage hosted at fridge.local.
 Source revision: c6a1abd0227def5d79887dc33a73bb1d041040c3, branch fix/predictable-slot-motion.
 
